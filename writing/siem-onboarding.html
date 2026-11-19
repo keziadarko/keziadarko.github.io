@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; font-src 'self' data:; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Onboarding a client to a SIEM: prove the logs before you trust the rules | Kezia Nyarkoa Darko</title>
+<meta name="description" content="Before relying on any detection rule, prove that its log sources are arriving, complete and correctly parsed. A step-by-step onboarding approach.">
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="../index.html"><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1.5l10 4.3v7.6c0 6.8-4.2 11.2-10 13.4C6.2 24.6 2 20.2 2 13.4V5.8z" fill="none" stroke="#2F7BFF" stroke-width="2.2"/><circle cx="12" cy="13.5" r="3.2" fill="#22D3EE"/></svg>Kezia Darko</a>
+  <a href="index.html">All writing</a>
+</header>
+<main>
+  <p class="kicker"><span class="tag">SIEM engineering</span><time datetime="2026-11-19">19 November 2026</time><span>3 minute read</span></p>
+  <h1>Onboarding a client to a SIEM: prove the logs before you trust the rules</h1>
+  <p class="standfirst">Before relying on any detection rule, prove that its log sources are arriving, complete and correctly parsed. A step-by-step onboarding approach.</p>
+  <article>
+<p>Onboarding a new client to a SIEM looks simple on paper: point the logs at the collector and switch the rules on. I have onboarded three clients into IBM QRadar, with firewall, VPN, endpoint and server logs, and the lesson each time was the same. Before you trust a single detection rule, prove that the logs it depends on are arriving, complete and correctly parsed.</p>
+
+<h2>1. Agree what you are trying to detect</h2>
+<p>Start with the client's risks, not with the list of devices. What are they worried about? Ransomware, account takeover, fraud, data theft? Each concern points to the log sources you need. Detecting a compromised VPN account, for example, needs VPN logs, authentication logs and endpoint data, not just firewall traffic.</p>
+<p>The output of this step is a short list of use cases, each with the log sources it depends on.</p>
+
+<h2>2. Build an inventory of log sources</h2>
+<p>For every source, record the device, its owner, its IP address, how it sends logs (syslog, an agent such as WinCollect for Windows, or an API) and the events per second you expect. Expected volume matters for licensing and capacity: a SIEM licensed by events per second can be overwhelmed by one verbose source.</p>
+
+<h2>3. Prove collection</h2>
+<p>For each source, confirm in the SIEM that events are arriving from the right address, at roughly the expected volume, with sensible timestamps. Time zone mistakes are common and easy to miss. An event logged with the wrong time will not line up with anything else during an investigation.</p>
+
+<h2>4. Prove parsing</h2>
+<p>Arriving is not enough. Check that events are recognised by the right parser and that the key fields are extracted: usernames, source and destination addresses, actions and results. In QRadar, a growing number of events in an unknown or stored category is a sign that parsing is not working. Rules that depend on a username field will never fire if that field is always empty.</p>
+
+<h2>5. Prove detection</h2>
+<p>For each use case, generate a safe test event and confirm the rule fires and the offence or alert reaches the analysts. For example, a series of failed logins on a test account should trigger the brute-force rule. Then tune the rules to the client's environment, with documented exceptions for their scanners, backups and administrators.</p>
+<p>Client-specific rules and playbooks made the biggest difference in my onboarding work. They improved detection coverage by 30 to 50%, compared with relying on generic rules alone.</p>
+
+<h2>6. Keep proving it after go-live</h2>
+<p>Logs that work on day one can stop on day thirty after a firewall change or an agent update. Regular health checks are part of the service:</p>
+<ul>
+  <li>Alert when a source stops sending or its volume drops sharply.</li>
+  <li>Watch for growth in unparsed events.</li>
+  <li>Track events per second against the licence and capacity.</li>
+  <li>Review the inventory whenever the client adds or replaces devices.</li>
+</ul>
+
+<h2>Summary</h2>
+<ul>
+  <li>Start from the client's risks and the use cases that address them.</li>
+  <li>Inventory every log source with its owner, method and expected volume.</li>
+  <li>Prove collection, then parsing, then detection, in that order.</li>
+  <li>Build client-specific rules and playbooks.</li>
+  <li>Keep checking log source health after go-live.</li>
+</ul>
+  </article>
+</main>
+<footer>
+  <p>Written by Kezia Nyarkoa Darko, a Cybersecurity Engineer in Accra, Ghana. <a href="https://www.linkedin.com/in/kezia-n-darko" rel="noopener noreferrer">Connect on LinkedIn</a>.</p>
+  <p><a href="../index.html">Back to home</a></p>
+</footer>
+</body>
+</html>

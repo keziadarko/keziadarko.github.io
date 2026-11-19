@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; font-src 'self' data:; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Using reputation intelligence to validate indicators of compromise | Kezia Nyarkoa Darko</title>
+<meta name="description" content="What IP and domain reputation feeds can and cannot tell you, how to enrich SIEM events with them, and how to validate an indicator.">
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="../index.html"><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1.5l10 4.3v7.6c0 6.8-4.2 11.2-10 13.4C6.2 24.6 2 20.2 2 13.4V5.8z" fill="none" stroke="#2F7BFF" stroke-width="2.2"/><circle cx="12" cy="13.5" r="3.2" fill="#22D3EE"/></svg>Kezia Darko</a>
+  <a href="index.html">All writing</a>
+</header>
+<main>
+  <p class="kicker"><span class="tag">Threat intelligence</span><time datetime="2026-11-19">19 November 2026</time><span>3 minute read</span></p>
+  <h1>Using reputation intelligence to validate indicators of compromise</h1>
+  <p class="standfirst">What IP and domain reputation feeds can and cannot tell you, how to enrich SIEM events with them, and how to validate an indicator.</p>
+  <article>
+<p>One of the integrations I built as a SOC analyst brought IP and domain reputation data into our Graylog SIEM, from feeds such as Spamhaus. It changed how quickly we could validate indicators of compromise. It also taught me what reputation data can and cannot tell you.</p>
+
+<h2>What reputation data is good for</h2>
+<p>A reputation feed is a list of IP addresses or domains that someone has observed doing harm: sending spam, hosting malware, running command-and-control servers, or belonging to networks controlled by criminals. Matching your logs against that list answers one question quickly: <em>has anyone else already seen this address behave badly?</em></p>
+<p>That is useful in three places:</p>
+<ul>
+  <li><strong>Triage:</strong> an alert involving a listed address deserves attention sooner.</li>
+  <li><strong>Hunting:</strong> searching past logs for connections to listed addresses can uncover activity no rule flagged.</li>
+  <li><strong>Reporting:</strong> it gives evidence and context for threat intelligence reports to clients.</li>
+</ul>
+
+<h2>Enrich at ingest, not during investigation</h2>
+<p>If analysts have to copy each address into a website, they will only check the ones that already look suspicious. Enriching messages as they arrive means every event carries the reputation result with it. In Graylog this is done with lookup tables, a data adapter that fetches the list, a cache and a pipeline rule that adds the result to the message as a field. Check your version's documentation for which adapters are available.</p>
+<p>Once the field exists, it can be used in searches, dashboards and alert conditions like any other.</p>
+
+<h2>A match is a signal, not a verdict</h2>
+<p>Reputation data has blind spots, and treating a match as proof causes mistakes in both directions.</p>
+<ul>
+  <li><strong>Shared infrastructure:</strong> cloud providers, content delivery networks and shared hosting put many unrelated sites behind the same addresses. A listed address may now belong to someone harmless.</li>
+  <li><strong>Age:</strong> addresses are reassigned. A list that is not refreshed regularly goes stale.</li>
+  <li><strong>New infrastructure:</strong> attackers rotate addresses often. An address that is not listed is not proof that it is safe.</li>
+</ul>
+<p>So I treat a match as a reason to look closer, and the absence of a match as no information at all.</p>
+
+<h2>How I validate an indicator</h2>
+<ol>
+  <li>Check the reputation result already on the event, and which list it came from.</li>
+  <li>Look it up in other sources, such as VirusTotal, AbuseIPDB or AlienVault OTX, to see whether they agree and when the activity was reported.</li>
+  <li>Look at the behaviour in our own logs: direction of traffic, ports, how often and from which internal hosts.</li>
+  <li>Decide whether it is an incident, something to block, or noise, and record the reasoning.</li>
+</ol>
+<p>Step 3 matters most. External intelligence tells you what an address did elsewhere. Your own logs tell you what it is doing to you.</p>
+
+<h2>Turning matches into intelligence</h2>
+<p>Individual matches become more useful when they are grouped. Which clients see the most traffic to listed networks? Which internal hosts keep contacting them? Did the matches start after a particular change? Questions like these turn a list of hits into a threat intelligence report that a client can act on.</p>
+
+<h2>Summary</h2>
+<ul>
+  <li>Reputation feeds quickly show whether an indicator has been seen behaving badly elsewhere.</li>
+  <li>Enrich events at ingest so every analyst sees the result without extra work.</li>
+  <li>Treat a match as a reason to investigate, not as proof, and keep feeds fresh.</li>
+  <li>Validate against several sources and, above all, against your own logs.</li>
+</ul>
+  </article>
+</main>
+<footer>
+  <p>Written by Kezia Nyarkoa Darko, a Cybersecurity Engineer in Accra, Ghana. <a href="https://www.linkedin.com/in/kezia-n-darko" rel="noopener noreferrer">Connect on LinkedIn</a>.</p>
+  <p><a href="../index.html">Back to home</a></p>
+</footer>
+</body>
+</html>

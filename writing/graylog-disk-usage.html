@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; font-src 'self' data:; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>When the SIEM disk fills up: a checklist for Graylog | Kezia Nyarkoa Darko</title>
+<meta name="description" content="A practical checklist for investigating disk usage on a Graylog SIEM server, from finding what uses the space to freeing it safely and sizing retention.">
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="../index.html"><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1.5l10 4.3v7.6c0 6.8-4.2 11.2-10 13.4C6.2 24.6 2 20.2 2 13.4V5.8z" fill="none" stroke="#2F7BFF" stroke-width="2.2"/><circle cx="12" cy="13.5" r="3.2" fill="#22D3EE"/></svg>Kezia Darko</a>
+  <a href="index.html">All writing</a>
+</header>
+<main>
+  <p class="kicker"><span class="tag">SIEM engineering</span><time datetime="2026-11-19">19 November 2026</time><span>4 minute read</span></p>
+  <h1>When the SIEM disk fills up: a checklist for Graylog</h1>
+  <p class="standfirst">A full disk on a SIEM server is not only a storage problem. It is a detection problem, because the rules keep running while the data they depend on stops arriving.</p>
+  <article>
+    <p>I recently investigated a disk usage issue on a Graylog server. This post is the checklist I would follow again: find what is using the space, check retention, check whether data is still being written, and only then free space.</p>
+
+    <h2>Why a full disk is a detection problem</h2>
+    <p>Graylog stores messages in an OpenSearch or Elasticsearch cluster. That cluster protects itself with disk watermarks. With the default settings, at 85% disk usage a node stops receiving new shards, at 90% the cluster tries to move shards away, and at 95% (the flood stage) indices are made read-only. Your values may differ if someone has changed them.</p>
+    <p>Once indices are read-only, Graylog cannot write new messages. It keeps them in its on-disk journal, which grows on the same server. If the journal fills, messages are lost. Meanwhile dashboards still load and alerts still run, just against data that stopped at some point. Nothing looks broken until someone notices the gap.</p>
+
+    <h2>1. Find out what is using the space</h2>
+    <p>Start on the server itself. Check which file system is full, then which directory is growing.</p>
+<pre><code>df -h
+sudo du -xh --max-depth=1 /var/lib 2&gt;/dev/null | sort -h | tail -n 10
+sudo du -xh --max-depth=1 /var/log 2&gt;/dev/null | sort -h | tail -n 10</code></pre>
+    <p>On a package install, the usual suspects are:</p>
+    <table>
+      <thead><tr><th scope="col">What</th><th scope="col">Typical location</th></tr></thead>
+      <tbody>
+        <tr><td>Search indices</td><td><code>/var/lib/opensearch</code> or <code>/var/lib/elasticsearch</code></td></tr>
+        <tr><td>Graylog message journal</td><td><code>/var/lib/graylog-server/journal</code></td></tr>
+        <tr><td>MongoDB (configuration)</td><td><code>/var/lib/mongodb</code></td></tr>
+        <tr><td>Application logs</td><td><code>/var/log/graylog-server</code>, <code>/var/log/opensearch</code></td></tr>
+      </tbody>
+    </table>
+    <p>Paths change with Docker or a custom install, so confirm them in the configuration: <code>path.data</code> in the OpenSearch configuration and <code>message_journal_dir</code> in Graylog's <code>server.conf</code>.</p>
+
+    <h2>2. Check the indices and retention</h2>
+    <p>If the index data is the largest directory, list the indices by size and check how full each node is. These commands assume a single node on <code>localhost:9200</code> without authentication. Add credentials and HTTPS if your cluster uses them.</p>
+<pre><code>curl -s 'http://localhost:9200/_cat/allocation?v'
+curl -s 'http://localhost:9200/_cat/indices?v&amp;s=store.size:desc' | head -n 20</code></pre>
+    <p>Then open <strong>System &gt; Indices</strong> in Graylog and look at each index set. The questions I ask are:</p>
+    <ul>
+      <li>Is a retention strategy actually set, or is it set to keep everything?</li>
+      <li>Does the maximum number of indices, multiplied by the size of each index, fit on the disk?</li>
+      <li>Has a new index set or stream been added recently without its own retention?</li>
+      <li>On newer Graylog versions that use data tiering, are the minimum and maximum days in storage realistic for the disk?</li>
+    </ul>
+
+    <h2>3. Check whether data is still being written</h2>
+    <p>Next, find out whether the server is keeping up. Graylog's journal shows how many messages it has received but not yet written to the indices.</p>
+<pre><code>curl -s -u admin 'http://localhost:9000/api/system/journal'</code></pre>
+    <p>If the number of uncommitted entries is high and rising, Graylog is receiving faster than it can write. A growing journal is a symptom, not the cause, so look at the output side: read-only indices or an unhealthy cluster.</p>
+    <p>To check for read-only indices:</p>
+<pre><code>curl -s 'http://localhost:9200/_all/_settings?filter_path=*.settings.index.blocks&amp;pretty'</code></pre>
+    <p>If you see <code>read_only_allow_delete</code>, the flood stage has been reached. Recent versions remove this block automatically once usage falls below the high watermark. On older versions you may have to clear it yourself after freeing space.</p>
+
+    <h2>4. Look at what changed in ingest</h2>
+    <p>Disk usage is roughly daily ingest multiplied by retention. If retention has not changed, ingest probably has. In Graylog, search the last 30 days and count messages by source to see which one grew. Common causes are a device switched to debug logging, a firewall that started logging all allowed traffic, or a new log source onboarded without a sizing check.</p>
+    <p>Reducing volume at the source is usually better than dropping messages in Graylog, but agree it with the team that owns the source. Some noisy logs still have detection value.</p>
+
+    <h2>5. Free space safely</h2>
+    <ul>
+      <li>Do not delete files inside the index data directory by hand. Graylog and OpenSearch will no longer agree on what exists.</li>
+      <li>Delete the oldest indices from the index set in Graylog, or lower the maximum number of indices and let retention remove them.</li>
+      <li>Clean up old rotated application logs, and check that log rotation is configured.</li>
+      <li>Afterwards, confirm that the journal is draining and that new messages appear in searches.</li>
+    </ul>
+
+    <h2>Size it so it does not happen again</h2>
+    <p>Work out the disk you need as daily ingest on disk, multiplied by the retention period in days, multiplied by one plus the number of replicas. Then make sure the result stays comfortably below the low watermark, not just below 100%.</p>
+    <p>Finally, monitor disk usage on the SIEM like any other critical system, and alert well before 85%. The point is to find out from an alert, not from a gap in the data.</p>
+
+    <h2>Summary</h2>
+    <ul>
+      <li>A full SIEM disk silently stops detection, so treat it as a security issue.</li>
+      <li>Find the growing directory first, then check index retention, the journal and read-only blocks.</li>
+      <li>Find what changed in ingest before deleting anything.</li>
+      <li>Free space through Graylog, never by deleting index files.</li>
+      <li>Size storage against the watermarks and alert on disk usage early.</li>
+    </ul>
+    <p class="note">Commands and default values vary between Graylog, OpenSearch and Elasticsearch versions. Check them against the documentation for your version before running them in production.</p>
+  </article>
+</main>
+<footer>
+  <p>Written by Kezia Nyarkoa Darko, a Cybersecurity Engineer in Accra, Ghana. <a href="https://www.linkedin.com/in/kezia-n-darko" rel="noopener noreferrer">Connect on LinkedIn</a>.</p>
+  <p><a href="../index.html">Back to home</a></p>
+</footer>
+</body>
+</html>

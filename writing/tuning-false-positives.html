@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; font-src 'self' data:; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Cutting SIEM false positives without missing real threats | Kezia Nyarkoa Darko</title>
+<meta name="description" content="A practical approach to tuning noisy detection rules: measure, understand, tune narrowly, document exceptions and test.">
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="../index.html"><svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 1.5l10 4.3v7.6c0 6.8-4.2 11.2-10 13.4C6.2 24.6 2 20.2 2 13.4V5.8z" fill="none" stroke="#2F7BFF" stroke-width="2.2"/><circle cx="12" cy="13.5" r="3.2" fill="#22D3EE"/></svg>Kezia Darko</a>
+  <a href="index.html">All writing</a>
+</header>
+<main>
+  <p class="kicker"><span class="tag">Detection engineering</span><time datetime="2026-11-19">19 November 2026</time><span>3 minute read</span></p>
+  <h1>Cutting SIEM false positives without missing real threats</h1>
+  <p class="standfirst">A practical approach to tuning noisy detection rules: measure, understand, tune narrowly, document exceptions and test.</p>
+  <article>
+<p>Every SOC analyst knows the feeling of opening the queue and seeing the same alert for the hundredth time. Tuning those rules was one of the most useful things I did as an analyst. It contributed to a 30% reduction in false positives across the clients we monitored. This is the approach I follow.</p>
+
+<h2>Why false positives are a security problem</h2>
+<p>Noise is not only annoying. Every alert an analyst has to close as benign takes time away from the ones that matter, and a queue full of repeats teaches people to close alerts quickly. That is exactly the habit an attacker benefits from. The goal of tuning is not fewer alerts. It is a queue where most alerts deserve attention.</p>
+
+<h2>1. Measure before you change anything</h2>
+<p>Start with data, not with the rules people complain about most. For a period of at least two to four weeks, count for each rule:</p>
+<ul>
+  <li>how many alerts it raised,</li>
+  <li>how many were closed as benign or false positive,</li>
+  <li>how many led to a real investigation or incident.</li>
+</ul>
+<p>In most environments a small number of rules produce most of the noise. Those are where tuning pays off first.</p>
+
+<h2>2. Find out why each noisy rule fires</h2>
+<p>Read a sample of the benign alerts for each noisy rule and look for the pattern. The usual causes are:</p>
+<ul>
+  <li><strong>Known, approved activity:</strong> vulnerability scanners, backup jobs, monitoring tools and administrators doing their jobs.</li>
+  <li><strong>Thresholds that do not fit the environment:</strong> a login failure threshold that suits a small office but not a domain controller serving thousands of users.</li>
+  <li><strong>Parsing problems:</strong> fields extracted wrongly, so the rule matches things it was never meant to match.</li>
+  <li><strong>Rules that are too broad:</strong> written to catch a technique in general, without the context that makes it suspicious.</li>
+</ul>
+
+<h2>3. Tune narrowly, never by switching rules off</h2>
+<p>Disabling a noisy rule removes the noise and the detection together. Instead, make the smallest change that removes the benign pattern:</p>
+<ul>
+  <li>Exclude a specific host, account or process, not a whole subnet.</li>
+  <li>Adjust thresholds per group of assets, rather than one value for everything.</li>
+  <li>Add context, such as time of day or whether the source is internal, so the rule fires on the suspicious version of the behaviour.</li>
+  <li>Fix the parsing first if the fields are wrong. Tuning around a parsing bug only hides it.</li>
+</ul>
+<p>Mapping each rule to the MITRE ATT&amp;CK technique it is meant to detect helps here. It forces the question: after this change, would the rule still catch that technique?</p>
+
+<h2>4. Write every exception down</h2>
+<p>Exceptions are where attackers hide. An excluded server is a server whose activity nobody will see. For each exception, record what was excluded, why, who approved it and when it should be reviewed. Then review the list regularly. Assets change owners, scanners are retired and service accounts get reused.</p>
+
+<h2>5. Test against real attacks, not just real noise</h2>
+<p>Before and after a change, check that the rule still fires on the activity it exists for. Replay historical true positives if your SIEM allows it, or generate a safe test event in a lab. A rule that has gone quiet because it was tuned too far looks exactly like a rule with nothing to detect.</p>
+
+<h2>6. Measure again</h2>
+<p>Repeat the counts from step 1 after a few weeks. You want the benign rate of each tuned rule to fall while its true positives stay the same. If true positives also drop, the tuning went too far.</p>
+
+<h2>Summary</h2>
+<ul>
+  <li>Measure alert volume and outcomes per rule before changing anything.</li>
+  <li>Understand why a rule is noisy, and fix parsing problems first.</li>
+  <li>Tune with narrow, documented exceptions. Do not disable rules.</li>
+  <li>Prove the rule still catches the technique it was written for.</li>
+  <li>Measure again, and review exceptions regularly.</li>
+</ul>
+  </article>
+</main>
+<footer>
+  <p>Written by Kezia Nyarkoa Darko, a Cybersecurity Engineer in Accra, Ghana. <a href="https://www.linkedin.com/in/kezia-n-darko" rel="noopener noreferrer">Connect on LinkedIn</a>.</p>
+  <p><a href="../index.html">Back to home</a></p>
+</footer>
+</body>
+</html>
